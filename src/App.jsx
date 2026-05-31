@@ -49,10 +49,8 @@ function initKnockout() {
 // ── TEAM CHIP ──────────────────────────────────────────────
 function TeamChip({ name, size = 'md' }) {
   if (!name) return <span style={{ color:'var(--text-dim)', fontSize:12 }}>TBD</span>;
-  const t = TEAMS[name] || {};
   return (
     <span style={{ display:'inline-flex', alignItems:'center', gap:6 }}>
-      <span style={{ fontSize: size==='sm'?14:18 }}>{t.flag||'🏳'}</span>
       <span style={{ fontSize: size==='sm'?11:13, fontWeight:600, color:'var(--text)' }}>{name}</span>
     </span>
   );
@@ -87,7 +85,6 @@ function GroupTable({ group, standings, best3rdTeams }) {
                 <span style={{ display:'inline-flex', alignItems:'center', gap:6 }}>
                   {isTop2 && <span style={{width:4,height:4,borderRadius:'50%',background:'var(--win)',flexShrink:0,display:'inline-block'}}/>}
                   {is3rd && <span style={{width:4,height:4,borderRadius:'50%',background:'var(--gold)',flexShrink:0,display:'inline-block'}}/>}
-                  <span style={{fontSize:14}}>{t.flag||'🏳'}</span>
                   <span style={{fontSize:12,fontWeight:600}}>{s.team}</span>
                   {t.host && <span style={{fontSize:9,background:'rgba(202,255,74,.2)',color:'var(--lime)',padding:'1px 5px',borderRadius:4,fontWeight:700}}>HOST</span>}
                   {t.debut && <span style={{fontSize:9,background:'rgba(79,195,247,.2)',color:'#4FC3F7',padding:'1px 5px',borderRadius:4,fontWeight:700}}>DEBUT</span>}
@@ -115,30 +112,47 @@ function GroupTable({ group, standings, best3rdTeams }) {
 function MatchRow({ match, onUpdate }) {
   const [h, setH] = useState(match.homeScore ?? '');
   const [a, setA] = useState(match.awayScore ?? '');
-  const ht = TEAMS[match.home] || {};
-  const at = TEAMS[match.away] || {};
 
-  function confirm() {
-    const hs = parseInt(h), as = parseInt(a);
+  function autoSave(homeVal, awayVal) {
+    const hs = parseInt(homeVal);
+    const as = parseInt(awayVal);
     if (!isNaN(hs) && !isNaN(as) && hs >= 0 && as >= 0) {
       onUpdate(match.id, hs, as);
+    }
+  }
+
+  function handleHomeChange(val) {
+    setH(val);
+    if (val !== '') {
+      const as = parseInt(a);
+      if (!isNaN(as) && as >= 0) {
+        autoSave(val, a);
+      }
+    }
+  }
+
+  function handleAwayChange(val) {
+    setA(val);
+    if (val !== '') {
+      const hs = parseInt(h);
+      if (!isNaN(hs) && hs >= 0) {
+        autoSave(h, val);
+      }
     }
   }
 
   return (
     <div className={`match-card ${match.played ? 'played' : ''}`}>
       <div className="match-team">
-        <span className="match-team-flag">{ht.flag||'🏳'}</span>
         <span className="match-team-name">{match.home}</span>
       </div>
       <div className="match-vs">
-        <span className="match-group-badge">GRP {match.group}</span>
         <div className="match-score">
           <input
             type="number" min="0" max="20"
             className="match-input"
             value={h}
-            onChange={e => setH(e.target.value)}
+            onChange={e => handleHomeChange(e.target.value)}
             placeholder="-"
           />
           <span className="score-sep">–</span>
@@ -146,20 +160,14 @@ function MatchRow({ match, onUpdate }) {
             type="number" min="0" max="20"
             className="match-input"
             value={a}
-            onChange={e => setA(e.target.value)}
+            onChange={e => handleAwayChange(e.target.value)}
             placeholder="-"
           />
         </div>
-        <button
-          className={`match-confirm-btn ${match.played ? 'confirmed' : ''}`}
-          onClick={confirm}
-        >
-          {match.played ? '✓ Saved' : 'Confirm'}
-        </button>
+        {match.played && <span style={{fontSize:11, color:'var(--lime)', fontWeight:700, marginLeft:8}}>✓ Saved</span>}
       </div>
       <div className="match-team right">
         <span className="match-team-name">{match.away}</span>
-        <span className="match-team-flag">{at.flag||'🏳'}</span>
       </div>
     </div>
   );
@@ -167,8 +175,6 @@ function MatchRow({ match, onUpdate }) {
 
 // ── BRACKET MATCH ──────────────────────────────────────────
 function BracketMatch({ match, onPickWinner, label }) {
-  const t1 = TEAMS[match.team1] || {};
-  const t2 = TEAMS[match.team2] || {};
   return (
     <div className="bracket-match" style={{ minWidth:170 }}>
       {label && <div style={{fontSize:10,color:'var(--text-dim)',padding:'4px 8px',borderBottom:'1px solid var(--border)',letterSpacing:1,textTransform:'uppercase'}}>{label}</div>}
@@ -177,7 +183,6 @@ function BracketMatch({ match, onPickWinner, label }) {
         onClick={() => match.team1 && onPickWinner(match.id, match.team1)}
         title={match.team1 ? `Click to advance ${match.team1}` : ''}
       >
-        <span className="bracket-team-flag">{t1.flag||''}</span>
         <span className="bracket-team-name">{match.team1||<span style={{color:'var(--text-dim)',fontSize:11}}>TBD</span>}</span>
         {match.winner===match.team1 && <span style={{fontSize:10,color:'var(--lime)'}}>★</span>}
       </div>
@@ -186,7 +191,6 @@ function BracketMatch({ match, onPickWinner, label }) {
         onClick={() => match.team2 && onPickWinner(match.id, match.team2)}
         title={match.team2 ? `Click to advance ${match.team2}` : ''}
       >
-        <span className="bracket-team-flag">{t2.flag||''}</span>
         <span className="bracket-team-name">{match.team2||<span style={{color:'var(--text-dim)',fontSize:11}}>TBD</span>}</span>
         {match.winner===match.team2 && <span style={{fontSize:10,color:'var(--lime)'}}>★</span>}
       </div>
@@ -237,30 +241,93 @@ export default function App() {
   // ── AUTO-POPULATE KNOCKOUT FROM GROUPS ─────────────────
   useEffect(() => {
     if (playedCount < 72) return; // Only auto-populate when group stage complete
-    const groups = Object.keys(GROUPS);
-    const newR32 = knockout.r32.map((m, i) => {
-      // Map bracket slots to actual teams
-      // Simplified mapping: pair group winners and runners-up
-      const slotPairs = [
-        ['A', 0, 'B', 2], ['C', 0, 'D', 2], ['E', 0, 'F', 2], ['G', 0, 'H', 2],
-        ['I', 0, 'J', 2], ['K', 0, 'L', 2],
-        ['A', 1, 'C', 1], ['B', 1, 'D', 1],
-        ['E', 1, 'G', 1], ['F', 1, 'H', 1],
-        ['I', 1, 'K', 1], ['J', 1, 'L', 1],
-        // 3rd place fill
+    
+    // Build slot mapping based on BRACKET_TEMPLATE
+    function populateR32() {
+      const r32Matches = [];
+      
+      // Create mapping of teams qualified
+      const groupWinners = {};
+      const groupRunnerUps = {};
+      const allThirdPlace = {};
+      
+      Object.keys(GROUPS).forEach(g => {
+        const standings = allStandings[g];
+        groupWinners[g] = standings[0]?.team || null;
+        groupRunnerUps[g] = standings[1]?.team || null;
+        allThirdPlace[g] = standings[2]?.team || null;
+      });
+      
+      // FIFA 2026 Round of 32 bracket - 18 matches
+      const bracketSlots = [
+        // Match 1-8: First pathway
+        { slot1: 'A1', slot2: 'C3' }, // A1 vs Best 3rd from C
+        { slot1: 'C1', slot2: 'E3' }, // C1 vs Best 3rd from E
+        { slot1: 'E1', slot2: 'G3' }, // E1 vs Best 3rd from G
+        { slot1: 'G1', slot2: 'A3' }, // G1 vs Best 3rd from A
+        { slot1: 'I1', slot2: 'K3' }, // I1 vs Best 3rd from K
+        { slot1: 'K1', slot2: 'B3' }, // K1 vs Best 3rd from B
+        { slot1: 'B2', slot2: 'F2' }, // B2 vs F2
+        { slot1: 'D2', slot2: 'H2' }, // D2 vs H2
+        // Match 9-16: Second pathway
+        { slot1: 'B1', slot2: 'F3' }, // B1 vs Best 3rd from F
+        { slot1: 'D1', slot2: 'A3' }, // D1 vs Best 3rd from A
+        { slot1: 'F1', slot2: 'H3' }, // F1 vs Best 3rd from H
+        { slot1: 'H1', slot2: 'J3' }, // H1 vs Best 3rd from J
+        { slot1: 'J1', slot2: 'D3' }, // J1 vs Best 3rd from D
+        { slot1: 'L1', slot2: 'I3' }, // L1 vs Best 3rd from I
+        { slot1: 'A2', slot2: 'E2' }, // A2 vs E2
+        { slot1: 'C2', slot2: 'G2' }, // C2 vs G2
+        // Match 17-18: Final pairings
+        { slot1: 'J2', slot2: 'L2' }, // J2 vs L2
+        { slot1: 'K2', slot2: 'I2' }, // K2 vs I2
       ];
-      if (i < slotPairs.length) {
-        const [g1, pos1, g2, pos2] = slotPairs[i];
-        return {
-          ...m,
-          team1: allStandings[g1]?.[pos1]?.team || null,
-          team2: allStandings[g2]?.[pos2]?.team || null,
-        };
-      }
-      return m;
-    });
+      
+      // Rank third place teams for assignment
+      const best3rdRanked = best3rd.map((t, idx) => ({ ...t, rankIdx: idx }));
+      
+      bracketSlots.forEach((slot, idx) => {
+        const match = knockout.r32[idx] || { id: `r32_${idx}` };
+        let team1 = null, team2 = null;
+        
+        // Resolve slot1
+        if (slot.slot1.includes('1')) {
+          const group = slot.slot1.charAt(0);
+          team1 = groupWinners[group];
+        } else if (slot.slot1.includes('2')) {
+          const group = slot.slot1.charAt(0);
+          team1 = groupRunnerUps[group];
+        }
+        
+        // Resolve slot2 (handles "A3" format)
+        if (slot.slot2.includes('3')) {
+          const thirdGroup = slot.slot2.charAt(0);
+          const thirdTeam = allThirdPlace[thirdGroup];
+          // Check if it's a best 3rd team
+          const isBest3rd = best3rd.some(t => t.team === thirdTeam);
+          team2 = isBest3rd ? thirdTeam : null;
+        } else if (slot.slot2.includes('2')) {
+          const group = slot.slot2.charAt(0);
+          team2 = groupRunnerUps[group];
+        } else if (slot.slot2.includes('1')) {
+          const group = slot.slot2.charAt(0);
+          team2 = groupWinners[group];
+        }
+        
+        r32Matches.push({
+          id: match.id,
+          team1: team1,
+          team2: team2,
+          winner: null,
+        });
+      });
+      
+      return r32Matches;
+    }
+    
+    const newR32 = populateR32();
     setKnockout(prev => ({ ...prev, r32: newR32 }));
-  }, [playedCount]);
+  }, [playedCount, allStandings, best3rd, knockout.r32]);
 
   // ── KNOCKOUT WINNER SELECTION ──────────────────────────
   function pickKnockoutWinner(round, matchId, winner) {
@@ -314,7 +381,7 @@ export default function App() {
   // ── SHARE ──────────────────────────────────────────────
   function shareResult() {
     const text = champion
-      ? `🏆 My #WorldCup2026 prediction: ${champion} ${TEAMS[champion]?.flag||''} wins the World Cup! #FIFA2026`
+      ? `🏆 My #WorldCup2026 prediction: ${champion} wins the World Cup! #FIFA2026`
       : '⚽ I\'m predicting the #WorldCup2026! Try it too! #FIFA2026';
     if (navigator.share) navigator.share({ title:'World Cup 2026 Predictor', text });
     else {
@@ -435,7 +502,6 @@ export default function App() {
                         const t = TEAMS[s.team]||{};
                         return (
                           <div key={s.team} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
-                            <span style={{ fontSize:13 }}>{t.flag||'🏳'}</span>
                             <div style={{ flex:1 }}>
                               <div style={{ height:3, background:'var(--surface3)', borderRadius:2, overflow:'hidden' }}>
                                 <div style={{
@@ -446,7 +512,7 @@ export default function App() {
                                 }}/>
                               </div>
                             </div>
-                            <span style={{ fontSize:10, color:'var(--text-dim)', minWidth:28 }}>#{t.fifaRank||'?'}</span>
+                            <span style={{ fontSize:11, fontWeight:600 }}>{t.fifaRank||'?'}</span>
                           </div>
                         );
                       })}
@@ -478,7 +544,6 @@ export default function App() {
                         border:`1px solid ${i < 8 ? 'rgba(255,215,0,0.3)' : 'var(--border)'}`,
                       }}>
                         <span style={{ fontSize:10, fontWeight:700, color:'var(--gold)', minWidth:18 }}>#{i+1}</span>
-                        <span style={{ fontSize:18 }}>{team.flag||'🏳'}</span>
                         <div style={{ flex:1 }}>
                           <div style={{ fontSize:12, fontWeight:700 }}>{t.team}</div>
                           <div style={{ fontSize:10, color:'var(--text-dim)' }}>
@@ -584,14 +649,13 @@ export default function App() {
                 </div>
                 <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
                   {[...qualifiedTeams].map(name => {
-                    const t = TEAMS[name]||{};
                     return (
                       <span key={name} style={{
                         display:'inline-flex', alignItems:'center', gap:5,
                         background:'var(--surface3)', border:'1px solid var(--border)',
                         borderRadius:6, padding:'4px 10px', fontSize:12, fontWeight:600
                       }}>
-                        <span style={{fontSize:14}}>{t.flag||'🏳'}</span>{name}
+                        {name}
                       </span>
                     );
                   })}
@@ -672,7 +736,6 @@ export default function App() {
               <div className="champion-section">
                 <div className="champion-trophy">🏆</div>
                 <div className="champion-label">Your 2026 World Cup Champion</div>
-                <div style={{ fontSize:80, margin:'12px 0' }}>{TEAMS[champion]?.flag||'🏳'}</div>
                 <div className="champion-name">{champion}</div>
                 <div style={{ marginTop:16, color:'var(--text-muted)', fontSize:14 }}>
                   {TEAMS[champion]?.confederation} · FIFA Rank #{TEAMS[champion]?.fifaRank}
@@ -781,7 +844,6 @@ export default function App() {
                   onMouseEnter={e => e.currentTarget.style.borderColor='rgba(255,215,0,0.4)'}
                   onMouseLeave={e => e.currentTarget.style.borderColor='var(--border)'}
                   >
-                    <div style={{ fontSize:40, marginBottom:8 }}>{c.flag}</div>
                     <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:28, color:'var(--text)', letterSpacing:1 }}>{c.winner}</div>
                     <div style={{ fontSize:13, color:'var(--text-muted)', marginTop:4 }}>
                       {c.year} · Runner-up: {c.runner}
@@ -797,21 +859,20 @@ export default function App() {
                 🥇 Most World Cup Titles (All-Time)
               </div>
               {[
-                { flag:'🇧🇷', name:'Brazil',    wins:5, years:'1958,62,70,94,2002' },
-                { flag:'🇩🇪', name:'Germany',   wins:4, years:'1954,74,90,2014' },
-                { flag:'🇮🇹', name:'Italy',     wins:4, years:'1934,38,82,2006' },
-                { flag:'🇦🇷', name:'Argentina', wins:3, years:'1978,86,2022' },
-                { flag:'🇫🇷', name:'France',    wins:2, years:'1998,2018' },
-                { flag:'🇺🇾', name:'Uruguay',   wins:2, years:'1930,1950' },
-                { flag:'🇪🇸', name:'Spain',     wins:1, years:'2010' },
-                { flag:'🏴󠁧󠁢󠁥󠁮󠁧󠁿', name:'England',  wins:1, years:'1966' },
+                { name:'Brazil',    wins:5, years:'1958,62,70,94,2002' },
+                { name:'Germany',   wins:4, years:'1954,74,90,2014' },
+                { name:'Italy',     wins:4, years:'1934,38,82,2006' },
+                { name:'Argentina', wins:3, years:'1978,86,2022' },
+                { name:'France',    wins:2, years:'1998,2018' },
+                { name:'Uruguay',   wins:2, years:'1930,1950' },
+                { name:'Spain',     wins:1, years:'2010' },
+                { name:'England',  wins:1, years:'1966' },
               ].map((t, i) => (
                 <div key={t.name} style={{
                   display:'flex', alignItems:'center', gap:12, padding:'10px 0',
                   borderBottom:'1px solid var(--border)'
                 }}>
                   <span style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:20, color:'var(--text-dim)', minWidth:28 }}>#{i+1}</span>
-                  <span style={{ fontSize:24 }}>{t.flag}</span>
                   <div style={{ flex:1 }}>
                     <span style={{ fontWeight:700 }}>{t.name}</span>
                     <div style={{ fontSize:11, color:'var(--text-dim)' }}>{t.years}</div>
@@ -836,9 +897,8 @@ export default function App() {
                     background:'var(--surface3)', borderRadius:8, padding:16,
                     border:'1px solid rgba(79,195,247,0.3)'
                   }}>
-                    <div style={{ fontSize:40 }}>{t.flag}</div>
-                    <div style={{ fontWeight:700, marginTop:8 }}>{name}</div>
-                    <div style={{ fontSize:12, color:'var(--text-muted)' }}>{t.confederation} · Group {t.group}</div>
+                    <div style={{ fontWeight:700, marginTop:0 }}>{name}</div>
+                    <div style={{ fontSize:12, color:'var(--text-muted)', marginTop:4 }}>{t.confederation} · Group {t.group}</div>
                     <div style={{ marginTop:6 }}>
                       <span style={{
                         fontSize:10, fontWeight:700, letterSpacing:1,
@@ -878,8 +938,6 @@ export default function App() {
 function ManualBracketMatch({ match, index, onPickWinner, onSetTeam, allTeams }) {
   const [open1, setOpen1] = useState(false);
   const [open2, setOpen2] = useState(false);
-  const t1 = TEAMS[match.team1]||{};
-  const t2 = TEAMS[match.team2]||{};
 
   const dropStyle = {
     position:'absolute', top:'100%', left:0, right:0, zIndex:300,
@@ -906,7 +964,6 @@ function ManualBracketMatch({ match, index, onPickWinner, onSetTeam, allTeams })
           }}
           style={{ cursor:'pointer' }}
         >
-          <span className="bracket-team-flag">{t1.flag||'+'}</span>
           <span className="bracket-team-name" style={{color: match.team1 ? 'var(--text)':'var(--text-dim)'}}>
             {match.team1 || 'Pick Team 1'}
           </span>
@@ -915,14 +972,13 @@ function ManualBracketMatch({ match, index, onPickWinner, onSetTeam, allTeams })
         {open1 && (
           <div style={dropStyle}>
             {allTeams.map(name => {
-              const t = TEAMS[name]||{};
               return (
                 <div key={name} style={optStyle}
                   onMouseEnter={e=>e.currentTarget.style.background='var(--surface4)'}
                   onMouseLeave={e=>e.currentTarget.style.background='transparent'}
                   onClick={() => { onSetTeam(index,'team1',name); setOpen1(false); }}
                 >
-                  <span style={{fontSize:15}}>{t.flag||'🏳'}</span>{name}
+                  {name}
                 </div>
               );
             })}
@@ -939,7 +995,6 @@ function ManualBracketMatch({ match, index, onPickWinner, onSetTeam, allTeams })
           }}
           style={{ cursor:'pointer', borderBottom:'none' }}
         >
-          <span className="bracket-team-flag">{t2.flag||'+'}</span>
           <span className="bracket-team-name" style={{color: match.team2 ? 'var(--text)':'var(--text-dim)'}}>
             {match.team2 || 'Pick Team 2'}
           </span>
@@ -948,14 +1003,13 @@ function ManualBracketMatch({ match, index, onPickWinner, onSetTeam, allTeams })
         {open2 && (
           <div style={dropStyle}>
             {allTeams.map(name => {
-              const t = TEAMS[name]||{};
               return (
                 <div key={name} style={optStyle}
                   onMouseEnter={e=>e.currentTarget.style.background='var(--surface4)'}
                   onMouseLeave={e=>e.currentTarget.style.background='transparent'}
                   onClick={() => { onSetTeam(index,'team2',name); setOpen2(false); }}
                 >
-                  <span style={{fontSize:15}}>{t.flag||'🏳'}</span>{name}
+                  {name}
                 </div>
               );
             })}
